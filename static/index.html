@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#15171c">
+<title>Saathi</title>
+
+<!-- PWA -->
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Saathi">
+
+<style>
+  :root{
+    --bg:#0e0f13; --header:#15171c; --bot:#22252b; --user:#2f6df6;
+    --bottext:#eaeaf0; --usertext:#fff; --muted:#7a7f8a; --accent:#2f6df6;
+    --line:#23262d; --chip:#22252b; --chip-active:#2a2d34; --avatar:#2f6df6;
+  }
+  html[data-theme="light"]{
+    --bg:#f5f6f8; --header:#ffffff; --bot:#eceef2; --user:#2f6df6;
+    --bottext:#1c1e22; --usertext:#fff; --muted:#8a8f99; --accent:#2f6df6;
+    --line:#e3e6ea; --chip:#eceef2; --chip-active:#dfe2e8; --avatar:#2f6df6;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;}
+  body{
+    background:var(--bg); color:var(--bottext);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Inter,sans-serif;
+    display:flex;flex-direction:column;height:100dvh;overflow:hidden;
+    transition:background .25s,color .25s;
+  }
+
+  /* header */
+  header{
+    background:var(--header);display:flex;align-items:center;gap:11px;
+    padding:10px 12px;flex:0 0 auto;border-bottom:1px solid var(--line);
+    padding-top:calc(10px + env(safe-area-inset-top));
+  }
+  .avatar{width:38px;height:38px;border-radius:50%;background:var(--avatar);
+    display:flex;align-items:center;justify-content:center;font-weight:700;font-size:17px;color:#fff;flex:0 0 auto;}
+  .htext{flex:1;min-width:0;}
+  .htext .name{font-weight:700;font-size:16px;letter-spacing:.2px;}
+  .htext .status{font-size:11px;color:#22c55e;display:flex;align-items:center;gap:5px;}
+  .htext .status::before{content:"";width:7px;height:7px;border-radius:50%;background:#22c55e;}
+  .htext .status.busy{color:#f0b000;} .htext .status.busy::before{background:#f0b000;}
+  .iconbtn{width:38px;height:38px;border:none;border-radius:50%;background:transparent;color:var(--bottext);
+    font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .15s;flex:0 0 auto;}
+  .iconbtn:hover{background:var(--chip);} .iconbtn:active{background:var(--chip-active);}
+  #installBtn{display:none;width:auto;padding:0 12px;gap:6px;border-radius:19px;background:var(--chip);font-size:13px;font-weight:600;}
+
+  /* chat */
+  #chat{flex:1 1 auto;overflow-y:auto;padding:14px 12px 6px;display:flex;flex-direction:column;scroll-behavior:smooth;}
+  #chat::-webkit-scrollbar{width:7px;} #chat::-webkit-scrollbar-thumb{background:var(--line);border-radius:4px;}
+  .turn{display:flex;gap:9px;margin:5px 2px;align-items:flex-end;animation:rise .2s ease both;}
+  .turn.user{justify-content:flex-end;}
+  @keyframes rise{from{opacity:0;transform:translateY(7px);}to{opacity:1;transform:none;}}
+  .turn .mini{width:26px;height:26px;border-radius:50%;background:var(--avatar);color:#fff;flex:0 0 auto;
+    display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;margin-bottom:2px;}
+  .bubble{max-width:76%;padding:10px 14px;border-radius:18px;font-size:15px;line-height:1.45;
+    white-space:pre-wrap;word-wrap:break-word;cursor:pointer;position:relative;}
+  .bubble.bot{background:var(--bot);color:var(--bottext);border-bottom-left-radius:6px;}
+  .bubble.user{background:var(--user);color:var(--usertext);border-bottom-right-radius:6px;}
+  .bubble.crisis{background:#3a2a12;color:#ffe8c2;max-width:88%;border:1px solid #5a4220;}
+  html[data-theme="light"] .bubble.crisis{background:#fff4e2;color:#7a4a08;border-color:#f0d9b0;}
+  .bubble.streaming::after{content:"▌";margin-left:1px;opacity:.6;animation:caret 1s step-end infinite;}
+  @keyframes caret{50%{opacity:0;}}
+  .ts{font-size:10px;color:var(--muted);margin:1px 8px 4px 37px;}
+  .ts.user{text-align:right;margin:1px 8px 4px;}
+  .typing span{display:inline-block;width:7px;height:7px;border-radius:50%;background:#9aa0aa;margin:0 1.5px;
+    animation:blink 1.2s infinite both;}
+  .typing span:nth-child(2){animation-delay:.2s;} .typing span:nth-child(3){animation-delay:.4s;}
+  @keyframes blink{0%,80%,100%{opacity:.25;}40%{opacity:1;}}
+
+  /* scroll-to-bottom */
+  #scrollBtn{position:fixed;right:14px;bottom:84px;width:40px;height:40px;border-radius:50%;border:1px solid var(--line);
+    background:var(--header);color:var(--bottext);font-size:18px;cursor:pointer;display:none;align-items:center;justify-content:center;
+    box-shadow:0 4px 14px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;z-index:5;}
+  #scrollBtn.show{display:flex;opacity:1;}
+
+  /* input */
+  footer{flex:0 0 auto;background:var(--header);display:flex;gap:9px;padding:10px 12px;border-top:1px solid var(--line);
+    padding-bottom:calc(10px + env(safe-area-inset-bottom));align-items:flex-end;}
+  #msg{flex:1;border:1px solid var(--line);outline:none;background:var(--chip);color:var(--bottext);
+    border-radius:22px;padding:12px 16px;font-size:15px;resize:none;max-height:130px;line-height:1.4;transition:border .15s;}
+  #msg:focus{border-color:var(--accent);}
+  #send{width:46px;height:46px;border:none;border-radius:50%;background:var(--accent);color:#fff;
+    font-size:18px;cursor:pointer;flex:0 0 auto;transition:transform .12s,opacity .15s;}
+  #send:active{transform:scale(.92);} #send:disabled{opacity:.45;cursor:default;}
+
+  #toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#2a2d34;color:#eaeaf0;
+    padding:9px 16px;border-radius:13px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;}
+  #toast.show{opacity:1;}
+</style>
+</head>
+<body>
+  <header>
+    <div class="avatar">S</div>
+    <div class="htext"><div class="name">Saathi</div><div class="status" id="status">online</div></div>
+    <button class="iconbtn" id="installBtn" title="install app">⤓ Install</button>
+    <button class="iconbtn" id="themeBtn" title="theme">☀️</button>
+    <button class="iconbtn" id="newBtn" title="new chat">⟳</button>
+  </header>
+
+  <div id="chat"></div>
+  <button id="scrollBtn" title="scroll to latest">↓</button>
+
+  <footer>
+    <textarea id="msg" rows="1" placeholder="message Saathi..." autocomplete="off"></textarea>
+    <button id="send">➤</button>
+  </footer>
+  <div id="toast"></div>
+
+<script>
+const chat=document.getElementById('chat'), msg=document.getElementById('msg'),
+      send=document.getElementById('send'), statusEl=document.getElementById('status'),
+      toast=document.getElementById('toast'), newBtn=document.getElementById('newBtn'),
+      themeBtn=document.getElementById('themeBtn'), installBtn=document.getElementById('installBtn'),
+      scrollBtn=document.getElementById('scrollBtn');
+
+// ---------- theme ----------
+function applyTheme(t){
+  document.documentElement.setAttribute('data-theme',t);
+  themeBtn.textContent = t==='dark' ? '☀️' : '🌙';
+  const hc=getComputedStyle(document.documentElement).getPropertyValue('--header').trim();
+  document.querySelector('meta[name=theme-color]').setAttribute('content',hc);
+}
+applyTheme(localStorage.getItem('saathi_theme')||'dark');
+themeBtn.onclick=()=>{ const t=document.documentElement.getAttribute('data-theme')==='dark'?'light':'dark';
+  localStorage.setItem('saathi_theme',t); applyTheme(t); };
+
+// ---------- session ----------
+let SID=localStorage.getItem('saathi_sid');
+if(!SID){SID='u_'+Math.random().toString(36).slice(2)+Date.now().toString(36);localStorage.setItem('saathi_sid',SID);}
+let busy=false;
+
+function now(){const d=new Date();return d.getHours().toString().padStart(2,'0')+':'+d.getMinutes().toString().padStart(2,'0');}
+function nearBottom(){return chat.scrollHeight - chat.scrollTop - chat.clientHeight < 90;}
+function scrollDown(force){ if(force||nearBottom()) chat.scrollTop=chat.scrollHeight; }
+
+function addBubble(text,who,opts={}){
+  const turn=document.createElement('div'); turn.className='turn '+(who==='user'?'user':'bot');
+  if(who!=='user'){ const a=document.createElement('div'); a.className='mini'; a.textContent='S'; turn.appendChild(a); }
+  const b=document.createElement('div');
+  b.className='bubble '+(opts.crisis?'crisis':(who==='user'?'user':'bot'));
+  b.textContent=text;
+  b.onclick=()=>{navigator.clipboard.writeText(b.textContent).then(showCopied).catch(()=>{});};
+  turn.appendChild(b); chat.appendChild(turn);
+  if(opts.ts!==false){const t=document.createElement('div');t.className='ts'+(who==='user'?' user':'');t.textContent=now();chat.appendChild(t);}
+  scrollDown(who==='user'); return b;
+}
+function showCopied(){toast.textContent='copied ✓';toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),1000);}
+function showToast(t){toast.textContent=t;toast.classList.add('show');setTimeout(()=>toast.classList.remove('show'),2600);}
+
+function addTyping(){
+  const turn=document.createElement('div');turn.className='turn bot';turn.id='typingRow';
+  const a=document.createElement('div');a.className='mini';a.textContent='S';turn.appendChild(a);
+  const b=document.createElement('div');b.className='bubble bot typing';
+  b.innerHTML='<span></span><span></span><span></span>';
+  turn.appendChild(b);chat.appendChild(turn);scrollDown(true);return turn;
+}
+function rmTyping(){const tr=document.getElementById('typingRow');if(tr)tr.remove();}
+function setBusy(v){busy=v;send.disabled=v;statusEl.textContent=v?'typing…':'online';statusEl.className='status'+(v?' busy':'');}
+
+chat.addEventListener('scroll',()=>{ scrollBtn.classList.toggle('show', !nearBottom()); });
+scrollBtn.onclick=()=>scrollDown(true);
+
+async function load(){
+  try{
+    const r=await fetch('/api/init?session_id='+encodeURIComponent(SID));
+    const d=await r.json();
+    if(d.history && d.history.length){
+      d.history.forEach(m=>addBubble(m.content, m.role==='user'?'user':'bot'));
+      addBubble('— picking up where we left off —','bot',{ts:false});
+    } else if(d.greeting){ addBubble(d.greeting,'bot'); }
+  }catch(e){ addBubble("hey. what's up?",'bot'); }
+}
+
+async function sendMsg(){
+  const text=msg.value.trim(); if(!text||busy) return;
+  msg.value=''; msg.style.height='auto';
+  addBubble(text,'user'); setBusy(true);
+  addTyping(); let bubble=null, acc='';
+  try{
+    const res=await fetch('/api/chat',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({session_id:SID,message:text})});
+    const reader=res.body.getReader(), dec=new TextDecoder(); let buf='';
+    while(true){
+      const {value,done}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true}); let lines=buf.split('\n'); buf=lines.pop();
+      for(const line of lines){
+        if(!line.trim()) continue;
+        let ev; try{ev=JSON.parse(line);}catch(_){continue;}
+        if(ev.t==='chunk'){
+          if(!bubble){ rmTyping(); bubble=addBubble('','bot'); bubble.classList.add('streaming'); }
+          acc+=ev.d; bubble.textContent=acc; bubble.classList.add('streaming'); scrollDown();
+        } else if(ev.t==='crisis'){
+          addBubble(ev.d,'bot',{crisis:true});
+        } else if(ev.t==='error'){
+          rmTyping(); addBubble(ev.d,'bot');
+        } else if(ev.t==='done'){
+          if(bubble) bubble.classList.remove('streaming');
+        }
+      }
+    }
+  }catch(e){
+    rmTyping(); addBubble("couldn't reach me just now — try again in a bit",'bot');
+  }finally{
+    rmTyping(); if(bubble) bubble.classList.remove('streaming');
+    setBusy(false); msg.focus();
+  }
+}
+
+newBtn.onclick=async()=>{
+  if(busy) return;
+  await fetch('/api/new',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SID})});
+  chat.innerHTML=''; const r=await(await fetch('/api/init?session_id='+encodeURIComponent(SID))).json();
+  addBubble(r.greeting||"hey. what's up?",'bot');
+};
+
+send.onclick=sendMsg;
+msg.addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendMsg();} });
+msg.addEventListener('input',()=>{msg.style.height='auto';msg.style.height=Math.min(msg.scrollHeight,130)+'px';});
+
+// ---------- PWA install ----------
+let deferredPrompt=null;
+window.addEventListener('beforeinstallprompt',e=>{ e.preventDefault(); deferredPrompt=e; installBtn.style.display='flex'; });
+window.addEventListener('appinstalled',()=>{ installBtn.style.display='none'; deferredPrompt=null; });
+const isIOS=/iphone|ipad|ipod/i.test(navigator.userAgent);
+const standalone=window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+if(isIOS && !standalone){ installBtn.style.display='flex'; }
+installBtn.onclick=async()=>{
+  if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; installBtn.style.display='none'; }
+  else if(isIOS){ showToast('Tap Share, then “Add to Home Screen”'); }
+};
+
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('/sw.js').catch(()=>{}); }
+
+load();
+</script>
+</body>
+</html>

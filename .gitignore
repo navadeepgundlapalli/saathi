@@ -1,0 +1,8 @@
+# local-only files — never upload these
+data/
+__pycache__/
+*.log
+*.bat
+cloudflared.exe
+start_online.py
+.env
