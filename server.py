@@ -28,7 +28,7 @@ if not API_KEY:
         "before starting the server. It is intentionally no longer stored in the code."
     )
 MODEL = "meta/llama-3.1-70b-instruct"
-API_TIMEOUT = 30
+API_TIMEOUT = 60
 CONTEXT_TURNS = 24
 
 BASE = os.path.dirname(os.path.abspath(__file__))
@@ -349,7 +349,8 @@ async def chat(request: Request):
                 if d:
                     full += d
                     yield json.dumps({"t": "chunk", "d": d}) + "\n"
-        except Exception:
+        except Exception as e:
+            print(f"CHAT ERROR: {type(e).__name__}: {e}", flush=True)
             if sess["messages"] and sess["messages"][-1]["role"] == "user":
                 sess["messages"].pop()
             yield json.dumps({"t": "error", "d": "couldn't reach me just now — try again in a bit"}) + "\n"
