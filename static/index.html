@@ -102,11 +102,20 @@
   #toast{position:fixed;left:50%;bottom:92px;transform:translateX(-50%);background:#2a2d34;color:#eaeaf0;
     padding:9px 16px;border-radius:13px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9;}
   #toast.show{opacity:1;}
+
+  /* mascot + welcome */
+  .avatar,.turn .mini{overflow:hidden;}
+  .avatar svg,.turn .mini svg{width:100%;height:100%;display:block;}
+  .welcome{display:flex;flex-direction:column;align-items:center;text-align:center;padding:30px 16px 16px;animation:rise .45s ease both;}
+  .welcome .face{width:104px;height:104px;border-radius:50%;overflow:hidden;box-shadow:0 8px 26px rgba(236,113,80,.42);}
+  .welcome .face svg{width:100%;height:100%;display:block;}
+  .welcome .wt{font-size:23px;font-weight:800;margin-top:16px;}
+  .welcome .ws{font-size:14px;color:var(--muted);margin-top:4px;}
 </style>
 </head>
 <body>
   <header>
-    <div class="avatar">S</div>
+    <div class="avatar" id="hdrAvatar"></div>
     <div class="htext"><div class="name">Saathi</div><div class="status" id="status">online</div></div>
     <button class="iconbtn" id="installBtn" title="install app">⤓ Install</button>
     <button class="iconbtn" id="themeBtn" title="theme">☀️</button>
@@ -128,6 +137,21 @@ const chat=document.getElementById('chat'), msg=document.getElementById('msg'),
       toast=document.getElementById('toast'), newBtn=document.getElementById('newBtn'),
       themeBtn=document.getElementById('themeBtn'), installBtn=document.getElementById('installBtn'),
       scrollBtn=document.getElementById('scrollBtn');
+
+// friendly face mascot (inline SVG — crisp at any size, no image files)
+const MASCOT='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+  +'<defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9f76"/><stop offset="1" stop-color="#ec6a44"/></linearGradient></defs>'
+  +'<circle cx="50" cy="50" r="50" fill="url(#mg)"/>'
+  +'<circle cx="28" cy="60" r="5" fill="#fff" opacity="0.22"/><circle cx="72" cy="60" r="5" fill="#fff" opacity="0.22"/>'
+  +'<circle cx="37" cy="45" r="6.5" fill="#fff"/><circle cx="63" cy="45" r="6.5" fill="#fff"/>'
+  +'<path d="M34 61 Q50 75 66 61" stroke="#fff" stroke-width="5.5" fill="none" stroke-linecap="round"/></svg>';
+document.getElementById('hdrAvatar').innerHTML=MASCOT;
+
+function showWelcome(){
+  const w=document.createElement('div'); w.className='welcome';
+  w.innerHTML='<div class="face">'+MASCOT+'</div><div class="wt">Saathi</div><div class="ws">your friend, anytime</div>';
+  chat.appendChild(w);
+}
 
 // ---------- theme ----------
 function applyTheme(t){
@@ -151,7 +175,7 @@ function scrollDown(force){ if(force||nearBottom()) chat.scrollTop=chat.scrollHe
 
 function addBubble(text,who,opts={}){
   const turn=document.createElement('div'); turn.className='turn '+(who==='user'?'user':'bot');
-  if(who!=='user'){ const a=document.createElement('div'); a.className='mini'; a.textContent='S'; turn.appendChild(a); }
+  if(who!=='user'){ const a=document.createElement('div'); a.className='mini'; a.innerHTML=MASCOT; turn.appendChild(a); }
   const b=document.createElement('div');
   b.className='bubble '+(opts.crisis?'crisis':(who==='user'?'user':'bot'));
   b.textContent=text;
@@ -165,7 +189,7 @@ function showToast(t){toast.textContent=t;toast.classList.add('show');setTimeout
 
 function addTyping(){
   const turn=document.createElement('div');turn.className='turn bot';turn.id='typingRow';
-  const a=document.createElement('div');a.className='mini';a.textContent='S';turn.appendChild(a);
+  const a=document.createElement('div');a.className='mini';a.innerHTML=MASCOT;turn.appendChild(a);
   const b=document.createElement('div');b.className='bubble bot typing';
   b.innerHTML='<span></span><span></span><span></span>';
   turn.appendChild(b);chat.appendChild(turn);scrollDown(true);return turn;
@@ -183,8 +207,8 @@ async function load(){
     if(d.history && d.history.length){
       d.history.forEach(m=>addBubble(m.content, m.role==='user'?'user':'bot'));
       addBubble('— picking up where we left off —','bot',{ts:false});
-    } else if(d.greeting){ addBubble(d.greeting,'bot'); }
-  }catch(e){ addBubble("hey. what's up?",'bot'); }
+    } else if(d.greeting){ showWelcome(); addBubble(d.greeting,'bot'); }
+  }catch(e){ showWelcome(); addBubble("hey. what's up?",'bot'); }
 }
 
 async function sendMsg(){
@@ -226,7 +250,7 @@ newBtn.onclick=async()=>{
   if(busy) return;
   await fetch('/api/new',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SID})});
   chat.innerHTML=''; const r=await(await fetch('/api/init?session_id='+encodeURIComponent(SID))).json();
-  addBubble(r.greeting||"hey. what's up?",'bot');
+  showWelcome(); addBubble(r.greeting||"hey. what's up?",'bot');
 };
 
 send.onclick=sendMsg;
