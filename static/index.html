@@ -112,6 +112,10 @@
   .welcome .face svg{width:100%;height:100%;display:block;}
   .welcome .wt{font-size:23px;font-weight:800;margin-top:16px;}
   .welcome .ws{font-size:14px;color:var(--muted);margin-top:4px;}
+  .starters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;padding:6px 16px 14px;animation:rise .5s ease both;}
+  .chip{background:var(--chip);border:1px solid var(--line);color:var(--bottext);border-radius:17px;
+    padding:9px 15px;font-size:13.5px;cursor:pointer;transition:background .15s,transform .1s;}
+  .chip:hover{background:var(--chip-active);} .chip:active{transform:scale(.95);}
 </style>
 </head>
 <body>
@@ -146,13 +150,31 @@ const MASCOT='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria
   +'<circle cx="28" cy="60" r="5" fill="#fff" opacity="0.22"/><circle cx="72" cy="60" r="5" fill="#fff" opacity="0.22"/>'
   +'<circle cx="37" cy="45" r="6.5" fill="#fff"/><circle cx="63" cy="45" r="6.5" fill="#fff"/>'
   +'<path d="M34 61 Q50 75 66 61" stroke="#fff" stroke-width="5.5" fill="none" stroke-linecap="round"/></svg>';
+
+// "thinking" expression — shown while Saathi is typing
+const MASCOT_THINK='<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+  +'<defs><linearGradient id="mg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#ff9f76"/><stop offset="1" stop-color="#ec6a44"/></linearGradient></defs>'
+  +'<circle cx="50" cy="50" r="50" fill="url(#mg)"/>'
+  +'<path d="M31 46 Q37 41 43 46" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>'
+  +'<path d="M57 46 Q63 41 69 46" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>'
+  +'<circle cx="50" cy="64" r="3.2" fill="#fff"/></svg>';
+
 document.getElementById('hdrAvatar').innerHTML=MASCOT;
 
+const STARTERS=["just need to vent","stressed about exams","hype me up","can't focus today"];
+
 function showWelcome(){
-  const w=document.createElement('div'); w.className='welcome';
+  const w=document.createElement('div'); w.className='welcome intro';
   w.innerHTML='<div class="face">'+MASCOT+'</div><div class="wt">Saathi</div><div class="ws">your friend, anytime</div>';
   chat.appendChild(w);
 }
+function showStarters(){
+  const s=document.createElement('div'); s.className='starters intro';
+  STARTERS.forEach(t=>{ const c=document.createElement('div'); c.className='chip'; c.textContent=t;
+    c.onclick=()=>{ removeIntro(); msg.value=t; sendMsg(); }; s.appendChild(c); });
+  chat.appendChild(s);
+}
+function removeIntro(){ document.querySelectorAll('.intro').forEach(e=>e.remove()); }
 
 // ---------- theme ----------
 function applyTheme(t){
@@ -190,7 +212,7 @@ function showToast(t){toast.textContent=t;toast.classList.add('show');setTimeout
 
 function addTyping(){
   const turn=document.createElement('div');turn.className='turn bot';turn.id='typingRow';
-  const a=document.createElement('div');a.className='mini';a.innerHTML=MASCOT;turn.appendChild(a);
+  const a=document.createElement('div');a.className='mini';a.innerHTML=MASCOT_THINK;turn.appendChild(a);
   const b=document.createElement('div');b.className='bubble bot typing';
   b.innerHTML='<span></span><span></span><span></span>';
   turn.appendChild(b);chat.appendChild(turn);scrollDown(true);return turn;
@@ -208,12 +230,13 @@ async function load(){
     if(d.history && d.history.length){
       d.history.forEach(m=>addBubble(m.content, m.role==='user'?'user':'bot'));
       addBubble('— picking up where we left off —','bot',{ts:false});
-    } else if(d.greeting){ showWelcome(); addBubble(d.greeting,'bot'); }
-  }catch(e){ showWelcome(); addBubble("hey. what's up?",'bot'); }
+    } else if(d.greeting){ showWelcome(); addBubble(d.greeting,'bot'); showStarters(); }
+  }catch(e){ showWelcome(); addBubble("hey. what's up?",'bot'); showStarters(); }
 }
 
 async function sendMsg(){
   const text=msg.value.trim(); if(!text||busy) return;
+  removeIntro();
   msg.value=''; msg.style.height='auto';
   addBubble(text,'user'); setBusy(true);
   addTyping(); let bubble=null, acc='';
@@ -251,7 +274,7 @@ newBtn.onclick=async()=>{
   if(busy) return;
   await fetch('/api/new',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:SID})});
   chat.innerHTML=''; const r=await(await fetch('/api/init?session_id='+encodeURIComponent(SID))).json();
-  showWelcome(); addBubble(r.greeting||"hey. what's up?",'bot');
+  showWelcome(); addBubble(r.greeting||"hey. what's up?",'bot'); showStarters();
 };
 
 send.onclick=sendMsg;
