@@ -128,8 +128,54 @@ _CRISIS_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
 ]]
 
 
+# explicit self-referential phrases that ALWAYS trigger (instant, rarely innocent)
+_CRISIS_HARD = [re.compile(p, re.IGNORECASE) for p in [
+    r"\bkill (myself|my self)\b", r"\bkilling myself\b",
+    r"\b(want|wanna) to? die\b", r"\bi want to die\b",
+    r"\bend (my life|it all)\b", r"\bending (it all|my life)\b",
+    r"\bdon'?t want to (live|be alive|exist)\b", r"\bbetter off dead\b", r"\bkms\b",
+    r"\b(hurt|cut|harm) myself\b",
+    r"marna chahta", r"mar jana chahta", r"mar jaun", r"jeena nahi chahta",
+    r"zindagi khatam", r"khud ?ko khatam",
+    r"मरना चाहता", r"जीना नहीं चाहता", r"जीने का मन नहीं",
+    r"చనిపో", r"చచ్చిపో", r"చావాల", r"బతక.{0,16}లేదు", r"జీవించ.{0,16}లేదు",
+    r"chanipo", r"chacchipo", r"chaval", r"bat.{0,4}k.{0,16}ledu",
+]]
+
+
+def crisis_hard(text):
+    return any(p.search(text) for p in _CRISIS_HARD)
+
+
+def is_crisis_ai(text):
+    """AI reads meaning: catches indirect distress, ignores academic/third-person mentions."""
+    try:
+        r = client.chat.completions.create(
+            model=FAST_MODEL,
+            messages=[
+                {"role": "system", "content": (
+                    "You are a safety classifier for a youth support chat. Reply YES only if the user's "
+                    "OWN message suggests THEY may be in emotional crisis — suicidal, self-harming, wanting "
+                    "to die, or hopeless about going on — including INDIRECT signs like 'I can't go on', "
+                    "'no point anymore', 'I'm done with everything', \"everyone'd be better without me\". "
+                    "Reply NO for clearly factual/academic/news/statistical questions about suicide or "
+                    "self-harm in general or about other people (e.g. 'suicide rates for a project'), and "
+                    "for ordinary chat. If it's genuinely ambiguous whether they mean themselves, choose YES. "
+                    "Output ONLY YES or NO."
+                )},
+                {"role": "user", "content": text},
+            ],
+            max_tokens=3, timeout=12,
+        )
+        return (r.choices[0].message.content or "").strip().upper().startswith("YES")
+    except Exception as e:
+        print(f"CRISISCLASS ERROR: {type(e).__name__}: {e}", flush=True)
+        return False
+
+
 def is_crisis(text):
-    return any(p.search(text) for p in _CRISIS_PATTERNS)
+    # explicit phrases trigger instantly; otherwise the AI judges meaning (catches indirect signals)
+    return crisis_hard(text) or is_crisis_ai(text)
 
 
 # ---------------- LIVE WEB SEARCH ----------------
