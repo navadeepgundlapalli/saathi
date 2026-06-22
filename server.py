@@ -132,6 +132,41 @@ def is_crisis(text):
     return any(p.search(text) for p in _CRISIS_PATTERNS)
 
 
+# ---------------- LIVE WEB SEARCH ----------------
+# Fires only for current-info / factual questions, so casual chat stays fast.
+_WEB_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
+    r"\bwho (won|win|is winning|are winning|is the)\b",
+    r"\b(latest|current|recent|todays|today's|this year|this week|this month|right now|currently|nowadays)\b",
+    r"\bnews\b", r"\b20(2[4-9]|3\d)\b",
+    r"\b(winner|won|champion|championship|final|score|standings|leaderboard)\b",
+    r"\b(ipl|world ?cup|t20|odi|olympics|election|stock|share price|weather|temperature)\b",
+    r"\b(price|cost) of\b", r"\bhow much (is|does|are|did)\b",
+    r"\b(release date|launch date|when (is|does|will|did|was))\b",
+    r"\b(search|google|look up|find out|latest on|update on)\b",
+]]
+
+
+def needs_web(text):
+    return any(p.search(text) for p in _WEB_PATTERNS)
+
+
+def web_search(query, n=5):
+    try:
+        from ddgs import DDGS
+        with DDGS() as d:
+            res = list(d.text(query, max_results=n))
+        lines = []
+        for r in res:
+            title = (r.get("title") or "").strip()
+            body = (r.get("body") or "").strip()
+            if body:
+                lines.append(f"- {title}: {body}")
+        return "\n".join(lines) if lines else None
+    except Exception as e:
+        print(f"WEB SEARCH ERROR: {type(e).__name__}: {e}", flush=True)
+        return None
+
+
 # ---------------- MEMORY ----------------
 def _safe_sid(sid):
     return re.sub(r"[^a-zA-Z0-9_-]", "", str(sid))[:64] or "anon"
@@ -345,6 +380,16 @@ async def chat(request: Request):
         full = ""
         try:
             msgs = [sess["messages"][0]] + sess["messages"][1:][-CONTEXT_TURNS:]
+            if needs_web(text):
+                ctx = web_search(text)
+                if ctx:
+                    today = datetime.now().strftime("%A, %d %B %Y")
+                    msgs.insert(1, {"role": "system", "content": (
+                        f"Live web search results (today is {today}) for the user's question. "
+                        "Use these to answer accurately in your normal chill voice — just tell him the "
+                        "answer like a friend who quickly looked it up. Don't paste links or say "
+                        f"'according to'. If the results don't actually answer it, say you couldn't find it.\n\n{ctx}"
+                    )})
             stream = client.chat.completions.create(
                 model=MODEL, messages=msgs, stream=True, max_tokens=300, timeout=API_TIMEOUT,
             )
