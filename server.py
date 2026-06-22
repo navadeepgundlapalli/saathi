@@ -151,16 +151,38 @@ def needs_web(text):
 
 
 def web_search(query, n=5):
+    # Preferred: Tavily (reliable from cloud servers). Needs TAVILY_API_KEY env var.
+    key = os.environ.get("TAVILY_API_KEY")
+    if key:
+        try:
+            import urllib.request
+            payload = json.dumps({
+                "api_key": key, "query": query, "max_results": n, "include_answer": True,
+            }).encode()
+            req = urllib.request.Request(
+                "https://api.tavily.com/search", data=payload,
+                headers={"Content-Type": "application/json"},
+            )
+            with urllib.request.urlopen(req, timeout=12) as r:
+                data = json.loads(r.read())
+            parts = []
+            if data.get("answer"):
+                parts.append("Summary: " + data["answer"])
+            for it in data.get("results", []):
+                c = (it.get("content") or "").strip()
+                if c:
+                    parts.append(f"- {it.get('title','')}: {c}")
+            if parts:
+                return "\n".join(parts)
+        except Exception as e:
+            print(f"TAVILY ERROR: {type(e).__name__}: {e}", flush=True)
+    # Fallback: DuckDuckGo (no key, but often blocked on cloud IPs)
     try:
         from ddgs import DDGS
         with DDGS() as d:
             res = list(d.text(query, max_results=n))
-        lines = []
-        for r in res:
-            title = (r.get("title") or "").strip()
-            body = (r.get("body") or "").strip()
-            if body:
-                lines.append(f"- {title}: {body}")
+        lines = [f"- {(r.get('title') or '').strip()}: {(r.get('body') or '').strip()}"
+                 for r in res if (r.get('body'))]
         return "\n".join(lines) if lines else None
     except Exception as e:
         print(f"WEB SEARCH ERROR: {type(e).__name__}: {e}", flush=True)
