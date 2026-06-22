@@ -146,8 +146,42 @@ _WEB_PATTERNS = [re.compile(p, re.IGNORECASE) for p in [
 ]]
 
 
+FAST_MODEL = "meta/llama-3.1-8b-instruct"
+
+
 def needs_web(text):
     return any(p.search(text) for p in _WEB_PATTERNS)
+
+
+def web_query_for(text):
+    """Let a fast model decide if this needs a live web lookup; returns a search query or None."""
+    try:
+        today = datetime.now().strftime("%A, %d %B %Y")
+        r = client.chat.completions.create(
+            model=FAST_MODEL,
+            messages=[
+                {"role": "system", "content": (
+                    f"Today is {today}. Decide if answering the user's message needs a LIVE web search. "
+                    "Yes for: current events, news, sports results/scores, prices, stock, weather, "
+                    "stats that change over time (subscriber/follower counts, population, net worth, records), "
+                    "recent releases, 'who/what is X now', anything time-sensitive or you might be outdated on. "
+                    "No for: casual chat, feelings, opinions, jokes, and stable general knowledge you already know. "
+                    "If yes, reply with ONLY a short plain web search query (no quotes). When the user means "
+                    "'this year/now/latest/currently', use the CURRENT year from today's date above. "
+                    "If no, reply with exactly: NO"
+                )},
+                {"role": "user", "content": text},
+            ],
+            max_tokens=40, timeout=15,
+        )
+        out = (r.choices[0].message.content or "").strip()
+        out = out.splitlines()[0].strip().strip('"').strip("'").strip() if out else ""
+        if not out or out.upper().startswith("NO"):
+            return None
+        return out
+    except Exception as e:
+        print(f"WEBCLASS ERROR: {type(e).__name__}: {e}", flush=True)
+        return text if needs_web(text) else None  # fall back to keyword heuristic
 
 
 def web_search(query, n=5):
@@ -402,8 +436,9 @@ async def chat(request: Request):
         full = ""
         try:
             msgs = [sess["messages"][0]] + sess["messages"][1:][-CONTEXT_TURNS:]
-            if needs_web(text):
-                ctx = web_search(text)
+            q = web_query_for(text)
+            if q:
+                ctx = web_search(q)
                 if ctx:
                     today = datetime.now().strftime("%A, %d %B %Y")
                     msgs.insert(1, {"role": "system", "content": (
